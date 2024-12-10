@@ -1,4 +1,4 @@
-# Double Ratchet protocol implementation for secure message exchange
+# Double Ratchet protocol implementation
 
 ## Local setup
 
