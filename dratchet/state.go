@@ -24,20 +24,11 @@ type State struct {
 	// Number of messages in previous sending chain.
 	PN uint32
 
-	// Dictionary of skipped-over message keys, indexed by ratchet public key or header key
-	// and message number.
+	// Dictionary of skipped-over message keys, indexed by ratchet public key and message number.
 	MkSkipped KeysStorage
 
-	// The maximum number of message keys that can be skipped in a single chain.
-	// WithMaxSkip should be set high enough to tolerate routine lost or delayed messages,
-	// but low enough that a malicious sender can't trigger excessive recipient computation.
+	// The maximum number of message keys that can be skipped in a single chain
 	MaxSkip uint
-
-	// Receiving header key and next header key. Only used for header encryption.
-	// HKr, NHKr Key
-
-	// Sending header key and next header key. Only used for header encryption.
-	// HKs, NHKs Key
 }
 
 func RatchetInitBob(sk Key, keyPair DHPair) (*State, error) {
@@ -68,8 +59,7 @@ func RatchetInitAlice(sk, dhPubKey Key) (*State, error) {
 		return nil, fmt.Errorf("can't generate dh secret: %s", err)
 	}
 
-	// state.RK, state.CKs, state.NHKs = KdfRK(sk, secret)
-	state.RK, state.CKs, _ = KdfRK(sk, secret)
+	state.RK, state.CKs = KdfRK(sk, secret)
 
 	return state, nil
 }
@@ -99,8 +89,7 @@ func (s *State) dhRatchet(h Header) error {
 		return fmt.Errorf("failed to generate dh recieve ratchet secret: %s", err)
 	}
 
-	// s.RK, s.CKr, s.NHKr = KdfRK(s.RK, recvSecret)
-	s.RK, s.CKr, _ = KdfRK(s.RK, recvSecret)
+	s.RK, s.CKr = KdfRK(s.RK, recvSecret)
 
 	s.DHs, err = GenerateDH()
 	if err != nil {
@@ -112,8 +101,7 @@ func (s *State) dhRatchet(h Header) error {
 		return fmt.Errorf("failed to generate dh send ratchet secret: %s", err)
 	}
 
-	// s.RK, s.CKs, s.NHKs = KdfRK(s.RK, sendSecret)
-	s.RK, s.CKs, _ = KdfRK(s.RK, sendSecret)
+	s.RK, s.CKs = KdfRK(s.RK, sendSecret)
 
 	return nil
 }
@@ -126,7 +114,7 @@ type skippedKey struct {
 }
 
 // Skip message keys in the current receiving chain.
-func (s *State) skipMessageKeys(key Key, until uint) error {
+func (s *State) skipMessageKeys(until uint) error {
 	if until < uint(s.Nr) {
 		return fmt.Errorf("out-of-order message (maybe it was deleted)")
 	}
@@ -137,10 +125,10 @@ func (s *State) skipMessageKeys(key Key, until uint) error {
 
 	for uint(s.Nr) < until {
 		var mk Key
-		s.CKs, mk = KdfCK(s.CKs)
-		s.Ns += 1
+		s.CKr, mk = KdfCK(s.CKr)
 		s.MkSkipped.Save(s.DHr, uint(s.Nr), mk)
-
+		s.Nr += 1
 	}
+
 	return nil
 }

@@ -31,3 +31,9 @@ go run cmd/bob/bob.go
 ```bash
 go run cmd/alice/alice.go
 ```
+
+## Check out-of-order messages
+
+```bash
+go run cmd/tests/skipped.go
+```

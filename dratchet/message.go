@@ -23,7 +23,7 @@ type Header struct {
 
 type MessageEncHeader []byte
 
-// Encode the header in the binary format.
+// Encode the header in the binary format
 func (h Header) Encode() MessageEncHeader {
 	buf := make([]byte, 8)
 	binary.LittleEndian.PutUint32(buf[0:4], h.N)
@@ -31,7 +31,7 @@ func (h Header) Encode() MessageEncHeader {
 	return append(buf, h.DH[:]...)
 }
 
-// Decode message header out of the binary-encoded representation.
+// Decode message header out of the binary-encoded representation
 func (h MessageEncHeader) Decode() (Header, error) {
 	// n (4 bytes) + pn (4 bytes) + dh (32 bytes)
 	if len(h) != 40 {

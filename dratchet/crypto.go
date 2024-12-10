@@ -44,7 +44,7 @@ func RatchetDecrypt(s *State, m Message, ad []byte) ([]byte, error) {
 
 	// Check if new ratchet key
 	if !bytes.Equal(m.Header.DH, s.DHr) {
-		if err = s.skipMessageKeys(s.DHr, uint(m.Header.PN)); err != nil {
+		if err = s.skipMessageKeys(uint(m.Header.PN)); err != nil {
 			return nil, fmt.Errorf("can't skip previous chain message keys: %s", err)
 		}
 		if err = s.dhRatchet(m.Header); err != nil {
@@ -52,7 +52,7 @@ func RatchetDecrypt(s *State, m Message, ad []byte) ([]byte, error) {
 		}
 	}
 
-	if err = s.skipMessageKeys(s.DHr, uint(m.Header.N)); err != nil {
+	if err = s.skipMessageKeys(uint(m.Header.N)); err != nil {
 		return nil, fmt.Errorf("can't skip current chain message keys: %s", err)
 	}
 

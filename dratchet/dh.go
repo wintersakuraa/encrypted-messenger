@@ -19,7 +19,7 @@ type DHPair interface {
 	PublicKey() Key
 }
 
-// creates a new Diffie-Hellman key pair.
+// Creates a new Diffie-Hellman key pair
 func GenerateDH() (DHPair, error) {
 	var privKey [32]byte
 	if _, err := io.ReadFull(rand.Reader, privKey[:]); err != nil {
@@ -37,8 +37,7 @@ func GenerateDH() (DHPair, error) {
 	}, nil
 }
 
-// returns the output from the Diffie-Hellman calculation between
-// the private key from the DH key pair dhPair and the DH public key dbPub.
+// Calculates shared secret using Diffie-Hellman
 func DH(dhPair DHPair, dhPub Key) (Key, error) {
 	var (
 		privKey [32]byte
@@ -58,45 +57,38 @@ func DH(dhPair DHPair, dhPub Key) (Key, error) {
 	return curve25519.X25519(privKey[:], pubKey[:])
 }
 
-// returns a pair (32-byte root key, 32-byte chain key) as the output of applying
-// a KDF keyed by a 32-byte root key rk to a Diffie-Hellman output dhOut.
-func KdfRK(rk, dhOut Key) (Key, Key, Key) {
+// Generates a pair 32-byte root key, 32-byte chain key
+func KdfRK(rk, dhOut Key) (Key, Key) {
 	var (
 		r   = hkdf.New(sha256.New, dhOut, rk, []byte("rsZUpEuXUqqwXBvSy3EcievAh4cMj6QL"))
-		buf = make([]byte, 96)
+		buf = make([]byte, 64)
 	)
 
-	// The only error here is an entropy limit which won't be reached for such a short buffer.
 	_, _ = io.ReadFull(r, buf)
 
 	rootKey := make(Key, 32)
-	headerKey := make(Key, 32)
 	chainKey := make(Key, 32)
 
 	copy(rootKey[:], buf[:32])
-	copy(chainKey[:], buf[32:64])
-	copy(headerKey[:], buf[64:96])
-	return rootKey, chainKey, headerKey
+	copy(chainKey[:], buf[32:])
+	return rootKey, chainKey
 }
 
-// Returns a pair (32-byte chain key, 32-byte message key) as the output of applying
-// a KDF keyed by a 32-byte chain key ck to some constant.
+// Generates a pair 32-byte chain key, 32-byte message key
 func KdfCK(ck Key) (Key, Key) {
-	const (
-		ckInput = 15
-		mkInput = 16
-	)
+	ckInput := []byte{0x01}
+	mkInput := []byte{0x02}
 
 	chainKey := make(Key, 32)
 	msgKey := make(Key, 32)
 
 	h := hmac.New(sha256.New, ck[:])
 
-	_, _ = h.Write([]byte{ckInput})
+	h.Write(ckInput)
 	copy(chainKey[:], h.Sum(nil))
 	h.Reset()
 
-	_, _ = h.Write([]byte{mkInput})
+	h.Write(mkInput)
 	copy(msgKey[:], h.Sum(nil))
 
 	return chainKey, msgKey
@@ -118,7 +110,7 @@ func Encrypt(mk Key, plaintext, ad []byte) ([]byte, error) {
 	return append(ciphertext, getAuthTag(authKey[:], ciphertext, ad)...), nil
 }
 
-// Decrypt returns the AEAD decryption of ciphertext with message key mk.
+// Returns the AEAD decryption of ciphertext
 func Decrypt(mk Key, authCiphertext, ad []byte) ([]byte, error) {
 	var (
 		l          = len(authCiphertext)
@@ -126,13 +118,13 @@ func Decrypt(mk Key, authCiphertext, ad []byte) ([]byte, error) {
 		signature  = authCiphertext[l-sha256.Size:]
 	)
 
-	// Check the signature.
+	// Check the signature
 	encKey, authKey, _ := deriveEncKeys(mk)
 	if s := getAuthTag(authKey[:], ciphertext, ad); !bytes.Equal(s, signature) {
 		return nil, fmt.Errorf("authentication failed")
 	}
 
-	// Decrypt.
+	// Decrypt
 	var (
 		block, _  = aes.NewCipher(encKey[:])
 		stream    = cipher.NewCTR(block, ciphertext[:aes.BlockSize])
@@ -143,7 +135,7 @@ func Decrypt(mk Key, authCiphertext, ad []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-// derive keys for message encryption and decryption. Returns (encKey, authKey, iv, err).
+// Derive keys for message encryption and decryption. Returns (encKey, authKey, iv, err).
 func deriveEncKeys(mk Key) (Key, Key, [16]byte) {
 	salt := make([]byte, 32)
 	var (
